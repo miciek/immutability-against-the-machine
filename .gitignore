@@ -1,0 +1,10 @@
+target
+.idea
+out
+*.iml
+.DS_Store
+*.zip
+.metals
+project/metals.sbt
+.bloop
+.bsp
