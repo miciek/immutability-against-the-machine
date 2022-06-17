@@ -2,7 +2,6 @@ import cats.effect.{IO, Ref, Resource}
 import cats.implicits.*
 import cats.effect.unsafe.implicits.global
 import WikidataAccess.getSparqlDataAccess
-import model.*
 import org.apache.jena.query.{QueryExecution, QueryFactory, QuerySolution}
 import org.apache.jena.rdfconnection.{RDFConnection, RDFConnectionRemote}
 
@@ -12,37 +11,18 @@ import scala.util.Random
 
 object Guides {
 
-  /** focus on data transformations function input output
-    *
-    * what I will show:
-    * - case class
-    * - trait
-    * - List.map, List.flatten, List.flatMap, List.fill
-    * - Option.map, Option.flatMap, List.headOption
-    * - reverse, sortBy
-    * - Map.get, Map.updated
-    * - IO, IO.delay, IO.pure, IO.map, IO.flatMap
-    * - IO.sequence, IO.parSequence
-    * - Resource, Resource.use
-    * - Ref, Ref.get, Ref.update, Ref.of
-    *
-    * what I won't show:
-    * - newtype
-    * - ADTs
-    * - pattern matching
-    * - for comprehension
-    * - no underscore notation
-    *
-    * - additional references: Loom
-    *
-    * TODO: potential expansions/additions
-    * some locations for "Bridge" return Avengers which exceeds the integer and throws. we could use it to introduce IO, IO.orElse (based on Option.orElse)
-    * List(( ?subject = <http://www.wikidata.org/entity/Q23781155> ) ( ?subjectLabel = "Avengers: Endgame"@en ) ( ?boxOffice = "2797501328"^^xsd:decimal ))
-    */
+  /** STEP 1: modeling as immutable values (product types) */
+  import model.*
 
-  /** STEP 1: immutable values, case classes, TravelGuide model */
-
-  /** STEP 2: List & Option ???? */
+  /** STEP 2: pure functions
+    * If we have many travel guides, which one should we choose?
+    **/
+  def guideWithManyMovies(travelGuides: List[TravelGuide]): Option[TravelGuide] = {
+    travelGuides
+      .sortBy(guide => guide.movies.size)
+      .reverse
+      .headOption
+  }
 
   /** STEP 3: IO - WikidataAccess & QueryingWikidata, SPARQL intro, n-triples */
   def execQuery(connection: RDFConnection): String => IO[List[QuerySolution]] = { query =>
@@ -69,16 +49,6 @@ object Guides {
   /** STEP 5: second version takes more attractions into consideration and returns "the best" one
     */
   object Version2 {
-    // move your business logic to non-IO pure functions
-    def guideWithManyMovies(travelGuides: List[TravelGuide]): Option[TravelGuide] = {
-      travelGuides
-        .sortBy(guide => guide.movies.size)
-        .reverse
-        .headOption
-    }
-
-    // TODO: different function that uses the internals of movies, not just size
-
     def travelGuide(data: DataAccess, attractionName: String): IO[Option[TravelGuide]] = {
       data
         .findAttractions(attractionName, 5)
@@ -95,8 +65,6 @@ object Guides {
   /** STEP 6: make it concurrent
     */
   object Version3 {
-    import Version2.guideWithManyMovies
-
     def travelGuide(data: DataAccess, attractionName: String): IO[Option[TravelGuide]] = {
       data
         .findAttractions(attractionName, 50)
@@ -140,20 +108,14 @@ object Guides {
 
     // PROBLEM: if we search generically, we'll just query for the first hit and it may not be the best one (or empty)
     // println(Version1.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // Some(TravelGuide(Attraction(Galata Bridge,Location(LocationId(Q406),Istanbul)),List(Movie(Skyfall,1108561013))))
-    // or: Some(TravelGuide(Attraction(Galata Bridge,Location(LocationId(Q2706262),Karaköy)),List()))
-
-    // println(Version2.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // Some(TravelGuide(Attraction(Third Mainland Bridge,Location(LocationId(Q8673),Lagos)),List(Movie(Captain America: Civil War,1153296293))))
 
     // PROBLEM: it will take a long time because we are querying in sequence
     // val start = System.currentTimeMillis()
     // println(Version2.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // Some(TravelGuide(Attraction(Third Mainland Bridge,Location(LocationId(Q8673),Lagos)),List(Movie(Captain America: Civil War,1153296293))))
     // println(s"Took ${System.currentTimeMillis() - start}ms") // will be more for Version2 than Version1 (remember to run a random query first)
 
+    // val start = System.currentTimeMillis()
     // println(Version3.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // Some(TravelGuide(Attraction(Third Mainland Bridge,Location(LocationId(Q8673),Lagos)),List(Movie(Captain America: Civil War,1153296293))))
     // println(s"Took ${System.currentTimeMillis() - start}ms") // will be less for Version3 than Version2 (remember to run a random query first)
 
     // PROBLEM: we are not closing connections (and query executions)
@@ -172,8 +134,6 @@ object Guides {
       val wikidata = getSparqlDataAccess(execQuerySafe(c))
       Version3.travelGuide(wikidata, "Bridge") // this will not leak, even if there are errors
     })
-
-    // println(program.unsafeRunSync())
 
     // PROBLEM: we may be running the same queries against the API, let's cache them
     def runQueryAndUpdateCache(

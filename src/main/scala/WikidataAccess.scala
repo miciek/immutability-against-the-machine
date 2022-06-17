@@ -28,20 +28,20 @@ object WikidataAccess {
         |} LIMIT $limit
         |""".stripMargin
 
-      for {
-        solutions   <- execQuery(query)
-        attractions <- IO.delay(
-                         solutions.map(s =>
-                           Attraction( // introduce named parameters
-                             name = s.getLiteral("attractionLabel").getString,
-                             location = Location(
-                               LocationId(s.getResource("location").getLocalName),
-                               s.getLiteral("locationLabel").getString
-                             )
-                           )
-                         )
-                       )
-      } yield attractions
+      execQuery(query)
+        .flatMap(solutions =>
+          IO.delay(
+            solutions.map(s =>
+              Attraction(
+                name = s.getLiteral("attractionLabel").getString,
+                location = Location(
+                  LocationId(s.getResource("location").getLocalName),
+                  s.getLiteral("locationLabel").getString
+                )
+              )
+            )
+          )
+        )
     }
 
     def findMoviesAboutLocation(locationId: LocationId, limit: Int): IO[List[Movie]] = {
@@ -59,15 +59,14 @@ object WikidataAccess {
         |} ORDER BY DESC(?boxOffice) LIMIT $limit
         |""".stripMargin
 
-      for {
-        solutions <- execQuery(query)
-        movies    <-
+      execQuery(query)
+        .flatMap(solutions =>
           IO.delay(
             solutions.map(s =>
               Movie(name = s.getLiteral("subjectLabel").getString, boxOffice = s.getLiteral("boxOffice").getLong)
             )
           )
-      } yield movies.distinctBy(_.name)
+        ).map(movies => movies.distinctBy(_.name))
     }
   }
 }
