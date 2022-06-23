@@ -1,7 +1,7 @@
 import cats.effect.IO
 import org.apache.jena.query.QuerySolution
-
-import model._
+import model.*
+import org.apache.jena.rdfconnection.{RDFConnection, RDFConnectionRemote}
 
 object WikidataAccess {
   val prefixes: String = """
@@ -68,5 +68,12 @@ object WikidataAccess {
           )
         ).map(movies => movies.distinctBy(_.name))
     }
+  }
+
+  def createConnectionUnsafe(): RDFConnection = {
+    RDFConnectionRemote.create
+      .destination("https://query.wikidata.org/")
+      .queryEndpoint("sparql")
+      .build
   }
 }

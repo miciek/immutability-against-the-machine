@@ -1,7 +1,7 @@
 import cats.effect.{IO, Ref, Resource}
 import cats.implicits.*
 import cats.effect.unsafe.implicits.global
-import WikidataAccess.getSparqlDataAccess
+import WikidataAccess._
 import org.apache.jena.query.{QueryExecution, QueryFactory, QuerySolution}
 import org.apache.jena.rdfconnection.{RDFConnection, RDFConnectionRemote}
 
@@ -76,10 +76,7 @@ object Guides {
   }
 
   def main(args: Array[String]): Unit = {
-    val connection     = RDFConnectionRemote.create
-      .destination("https://query.wikidata.org/")
-      .queryEndpoint("sparql")
-      .build
+    val connection     = createConnectionUnsafe()
     val wikidataAccess = getSparqlDataAccess(execQuery(connection))
     println(Version1.travelGuide(wikidataAccess, "Bridge of Sighs").unsafeRunSync())
 
@@ -95,13 +92,8 @@ object Guides {
     /** STEP 6: protect against leaks
       */
     val connectionResource: Resource[IO, RDFConnection] = Resource.make(
-      IO.blocking(
-        RDFConnectionRemote.create
-          .destination("https://query.wikidata.org/")
-          .queryEndpoint("sparql")
-          .build
-      )
-    )(connection => IO.blocking(connection.close()))
+      IO.delay(createConnectionUnsafe())
+    )(connection => IO.delay(connection.close()))
 
     val program: IO[Option[TravelGuide]] = connectionResource.use(c => {
       val wikidata = getSparqlDataAccess(execQuery(c))
@@ -110,26 +102,18 @@ object Guides {
 
     /** STEP 7: same queries will return same results, cache them!
       */
-    def runQueryAndUpdateCache(
-        connection: RDFConnection,
-        cache: Ref[IO, Map[String, List[QuerySolution]]],
-        query: String
-    ): IO[List[QuerySolution]] = {
-      execQuery(connection)(query).flatMap(realSolutions =>
-        cache.update(_.updated(query, realSolutions)).map(_ => realSolutions)
-      )
-    }
-
     def cachedExecQuery(
         connection: RDFConnection,
         cache: Ref[IO, Map[String, List[QuerySolution]]]
-    ): String => IO[List[QuerySolution]] = { query =>
+    )(query: String): IO[List[QuerySolution]] = {
       cache.get.flatMap(cachedQueries => {
-        cachedQueries.get(query).map(cachedSolutions => IO.pure(cachedSolutions)).getOrElse(runQueryAndUpdateCache(
-          connection,
-          cache,
-          query
-        ))
+        val maybeCachedSolutions: Option[List[QuerySolution]] = cachedQueries.get(query)
+        maybeCachedSolutions match {
+          case Some(cachedSolutions) => IO.pure(cachedSolutions)
+          case None                  => execQuery(connection)(query).flatMap(realSolutions =>
+              cache.update(_.updated(query, realSolutions)).map(_ => realSolutions)
+            )
+        }
       })
     }
 
