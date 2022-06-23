@@ -1,21 +1,23 @@
 object Intro {
-  /**
-    * How does immutability work?
+
+  /** How does immutability work?
+    *
+    * Teaching by example:
     * - String.concat, List.appendedAll, String.substring, List.appended, List.slice
     * - Map.get, Map.updated
     * - Option.orElse
     */
 
   {
-    val ab = "ab"
-    val cd = "cd"
+    val ab   = "ab"
+    val cd   = "cd"
     val abcd = ab.concat(cd)
     assert(abcd == "abcd")
   }
 
   {
-    val ab = List("a", "b")
-    val cd = List("c", "d")
+    val ab   = List("a", "b")
+    val cd   = List("c", "d")
     val abcd = ab.appendedAll(cd)
     assert(abcd == List("a", "b", "c", "d"))
 
@@ -41,8 +43,8 @@ object Intro {
 
   {
     val map: Map[String, Int] = Map.empty
-    val apple = map.updated("Apple", 1)
-    val fruits = apple.updated("Mango", 5)
+    val apple                 = map.updated("Apple", 1)
+    val fruits                = apple.updated("Mango", 5)
 
     println(fruits)
 
@@ -50,4 +52,17 @@ object Intro {
     println(result)
     assert(result.contains(5))
   }
+
+  {
+    val numbers = List(1, 2, 3, 4, 5)
+    val doubles = numbers.map(i => i * 2) // List(2, 4, 6, 8, 10)
+    assert(doubles == List(2, 4, 6, 8, 10))
+  }
+
+  val tvShow                                       = "The Wire (2002-2008)"
+  def extractYearStart(show: String): Option[Int]  = ???
+  def extractYearEnd(show: String): Option[Int]    = ???
+  def extractSingleYear(show: String): Option[Int] = ???
+
+  def year: Option[Int] = extractYearStart(tvShow).orElse(extractSingleYear(tvShow))
 }

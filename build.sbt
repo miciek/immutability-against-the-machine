@@ -10,7 +10,7 @@ lazy val root = (project in file("."))
       // imperative libraries:
       "org.apache.jena" % "apache-jena-libs" % "4.5.0",
       "org.apache.jena" % "jena-fuseki-main" % "4.5.0",
-      "org.slf4j"       % "slf4j-simple"     % "1.7.36"
+      "org.slf4j"       % "slf4j-nop"        % "2.0.0-alpha6"
     ),
     initialCommands := s"""
       import cats.effect._, cats.implicits._, cats.effect.unsafe.implicits.global

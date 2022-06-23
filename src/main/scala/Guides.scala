@@ -6,30 +6,20 @@ import org.apache.jena.query.{QueryExecution, QueryFactory, QuerySolution}
 import org.apache.jena.rdfconnection.{RDFConnection, RDFConnectionRemote}
 
 import scala.concurrent.duration.*
-import scala.jdk.javaapi.CollectionConverters.asScala
 import scala.util.Random
+import QueryingWikidata._
 
 object Guides {
 
-  /** STEP 1: modeling as immutable values (product types) */
+  /** STEP 1: modeling as immutable values (product types) - [[model]] */
   import model.*
 
-  /** STEP 2: pure functions
-    * If we have many travel guides, which one should we choose?
-    **/
-  def guideWithManyMovies(travelGuides: List[TravelGuide]): Option[TravelGuide] = {
-    travelGuides
-      .sortBy(guide => guide.movies.size)
-      .reverse
-      .headOption
+  /** STEP 2: IO - [[QueryingWikidata]], [[DataAccess]], WikidataAccess, SPARQL intro, n-triples */
+  def execQuery(connection: RDFConnection)(query: String): IO[List[QuerySolution]] = {
+    IO.delay(connection.query(QueryFactory.create(query)).execSelect())
   }
 
-  /** STEP 3: IO - WikidataAccess & QueryingWikidata, SPARQL intro, n-triples */
-  def execQuery(connection: RDFConnection): String => IO[List[QuerySolution]] = { query =>
-    IO.delay(asScala(connection.query(QueryFactory.create(query)).execSelect()).toList)
-  }
-
-  /** STEP 4: first version of a TravelGuide finder
+  /** STEP 3: first version of a TravelGuide finder
     */
   object Version1 {
     def travelGuide(data: DataAccess, attractionName: String): IO[Option[TravelGuide]] = {
@@ -46,56 +36,44 @@ object Guides {
     }
   }
 
-  /** STEP 5: second version takes more attractions into consideration and returns "the best" one
+  /** STEP 4: second version takes more attractions into consideration and returns "the best" one
     */
+  def guideWithManyMovies(travelGuides: List[TravelGuide]): Option[TravelGuide] = {
+    travelGuides
+      .sortBy(guide => guide.movies.size)
+      .reverse
+      .headOption
+  }
+
   object Version2 {
     def travelGuide(data: DataAccess, attractionName: String): IO[Option[TravelGuide]] = {
       data
-        .findAttractions(attractionName, 5)
+        .findAttractions(attractionName, 3)
         .flatMap(attractions =>
           attractions.map(attraction =>
             data
-              .findMoviesAboutLocation(attraction.location.id, 1)
+              .findMoviesAboutLocation(attraction.location.id, 3)
               .map(movies => TravelGuide(attraction, movies))
           ).sequence
         ).map(guideWithManyMovies)
     }
   }
 
-  /** STEP 6: make it concurrent
+  /** STEP 5: make it concurrent
     */
   object Version3 {
     def travelGuide(data: DataAccess, attractionName: String): IO[Option[TravelGuide]] = {
       data
-        .findAttractions(attractionName, 50)
+        .findAttractions(attractionName, 3)
         .flatMap(attractions =>
           attractions.map(attraction =>
             data
-              .findMoviesAboutLocation(attraction.location.id, 1)
+              .findMoviesAboutLocation(attraction.location.id, 3)
               .map(movies => TravelGuide(attraction, movies))
           ).parSequence
         ).map(guideWithManyMovies)
     }
   }
-
-  /** STEP 7: protect against leaks
-    */
-  def createExecution(connection: RDFConnection, query: String): IO[QueryExecution]    = IO.blocking(
-    connection.query(QueryFactory.create(query))
-  )
-  def closeExecution(execution: QueryExecution): IO[Unit]                              = IO.blocking(
-    execution.close()
-  )
-  def execQuerySafe(connection: RDFConnection)(query: String): IO[List[QuerySolution]] = {
-    val executionResource: Resource[IO, QueryExecution] = Resource.make(createExecution(connection, query))(
-      closeExecution
-    ) // or Resource.fromAutoCloseable(createExecution)
-
-    executionResource.use(execution => IO.blocking(asScala(execution.execSelect()).toList))
-  }
-
-  /** STEP 8: same queries will return same results, cache them!
-    */
 
   def main(args: Array[String]): Unit = {
     val connection     = RDFConnectionRemote.create
@@ -103,24 +81,19 @@ object Guides {
       .queryEndpoint("sparql")
       .build
     val wikidataAccess = getSparqlDataAccess(execQuery(connection))
-    // println(Version1.travelGuide(wikidataAccess, "Bridge of Sighs").unsafeRunSync()) // OK
-    // Some(TravelGuide(Attraction(Bridge of Sighs,Location(LocationId(Q641),Venice)),List(Movie(Spider-Man: Far from Home,1131927996))))
+    println(Version1.travelGuide(wikidataAccess, "Bridge of Sighs").unsafeRunSync())
 
     // PROBLEM: if we search generically, we'll just query for the first hit and it may not be the best one (or empty)
-    // println(Version1.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
+    // println(Version2.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
 
     // PROBLEM: it will take a long time because we are querying in sequence
-    // val start = System.currentTimeMillis()
-    // println(Version2.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // println(s"Took ${System.currentTimeMillis() - start}ms") // will be more for Version2 than Version1 (remember to run a random query first)
-
-    // val start = System.currentTimeMillis()
     // println(Version3.travelGuide(wikidataAccess, "Bridge").unsafeRunSync())
-    // println(s"Took ${System.currentTimeMillis() - start}ms") // will be less for Version3 than Version2 (remember to run a random query first)
 
-    // PROBLEM: we are not closing connections (and query executions)
+    // PROBLEM: we are not closing connections (and query executions, but we ignore it in this example)
     connection.close()
 
+    /** STEP 6: protect against leaks
+      */
     val connectionResource: Resource[IO, RDFConnection] = Resource.make(
       IO.blocking(
         RDFConnectionRemote.create
@@ -131,11 +104,12 @@ object Guides {
     )(connection => IO.blocking(connection.close()))
 
     val program: IO[Option[TravelGuide]] = connectionResource.use(c => {
-      val wikidata = getSparqlDataAccess(execQuerySafe(c))
+      val wikidata = getSparqlDataAccess(execQuery(c))
       Version3.travelGuide(wikidata, "Bridge") // this will not leak, even if there are errors
     })
 
-    // PROBLEM: we may be running the same queries against the API, let's cache them
+    /** STEP 7: same queries will return same results, cache them!
+      */
     def runQueryAndUpdateCache(
         connection: RDFConnection,
         cache: Ref[IO, Map[String, List[QuerySolution]]],

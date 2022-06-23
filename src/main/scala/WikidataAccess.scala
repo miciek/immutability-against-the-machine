@@ -1,17 +1,17 @@
 import cats.effect.IO
-import model._
 import org.apache.jena.query.QuerySolution
 
+import model._
+
 object WikidataAccess {
+  val prefixes: String = """
+                           |PREFIX wd: <http://www.wikidata.org/entity/>
+                           |PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+                           |PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+                           |PREFIX schema: <http://schema.org/>
+                           |""".stripMargin
 
   def getSparqlDataAccess(execQuery: String => IO[List[QuerySolution]]): DataAccess = new DataAccess {
-    val prefixes = """
-        |PREFIX wd: <http://www.wikidata.org/entity/>
-        |PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-        |PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        |PREFIX schema: <http://schema.org/>
-        |""".stripMargin
-
     def findAttractions(name: String, limit: Int): IO[List[Attraction]] = {
       val query = s"""
         |$prefixes

@@ -6,17 +6,21 @@ import org.apache.jena.rdfconnection.RDFConnectionRemote;
 
 import java.util.Iterator;
 
-public class QueryingWikidata {
+public class QueryingWikidataImperative {
     public static void main(String[] args) {
         String query =
                 "PREFIX wd: <http://www.wikidata.org/entity/>\n" +
                 "PREFIX wdt: <http://www.wikidata.org/prop/direct/>\n" +
                 "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
-                "SELECT DISTINCT ?attraction ?label WHERE {\n" +
+                "SELECT DISTINCT ?attraction ?attractionLabel ?location ?locationLabel WHERE {\n" +
                 "  ?attraction wdt:P31 wd:Q570116;\n" +
-                "              rdfs:label ?label.\n" +
-                "  FILTER(LANG(?label) = \"en\").\n" +
+                "              rdfs:label ?attractionLabel;\n" +
+                "              wdt:P131 ?location.\n" +
+                "  FILTER(LANG(?attractionLabel) = \"en\").\n" +
+                "  ?location rdfs:label ?locationLabel;\n" +
+                "  FILTER(LANG(?locationLabel) = \"en\").\n" +
                 "} LIMIT 3";
+
         RDFConnection connection = RDFConnectionRemote.create()
                 .destination("https://query.wikidata.org/")
                 .queryEndpoint("sparql")
@@ -25,13 +29,15 @@ public class QueryingWikidata {
         QueryExecution execution = connection.query(QueryFactory.create(query));
 
         Iterator<QuerySolution> solutions = execution.execSelect();
-        solutions.forEachRemaining(solution -> {
+        while(solutions.hasNext()) {
+            QuerySolution solution = solutions.next();
             String id = solution.getResource("attraction").getLocalName();
-            String label = solution.getLiteral("label").getString();
+            String label = solution.getLiteral("attractionLabel").getString();
             System.out.printf("Got attraction %s (id = %s)%n", label, id);
-        });
-        execution.close();
-        connection.close();
+        } // or solutions.forEachRemaining
+
+        execution.close(); // or try-finally (nested)
+        connection.close(); // or try-finally (see below)
 
         // or:
         // try(RDFConnection connection = RDFConnectionRemote.create()
