@@ -9,7 +9,7 @@ object model {
   case class LocationId(value: String)
   case class Location(id: LocationId, name: String)
   case class Attraction(name: String, location: Location)
-  
+
   case class Movie(name: String, boxOffice: Long)
   case class TravelGuide(attraction: Attraction, movies: List[Movie])
 }
