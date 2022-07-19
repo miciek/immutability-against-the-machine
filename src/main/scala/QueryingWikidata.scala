@@ -1,3 +1,4 @@
+import WikidataAccess.createConnectionUnsafe
 import cats.effect.IO
 import cats.implicits.*
 import cats.effect.unsafe.implicits.global
@@ -29,10 +30,7 @@ object QueryingWikidata {
 
   // IO intro
   def main(args: Array[String]): Unit = {
-    val connection = RDFConnectionRemote.create
-      .destination("https://query.wikidata.org/")
-      .queryEndpoint("sparql")
-      .build
+    val connection = createConnectionUnsafe()
 
     def execQuery(query: String): IO[List[QuerySolution]] = {
       IO.delay(connection.query(QueryFactory.create(query)).execSelect())
@@ -61,10 +59,16 @@ object QueryingWikidata {
     val attractions: List[Attraction] = attractionsProgram.unsafeRunSync()
     println(attractions)
 
-    // we can also operate on multiple programs
+    // the values are still there, unchanged, we can operate on them
     val attractionProgram: IO[Option[Attraction]] = attractionsProgram.map(result => result.headOption)
-    val programs: List[IO[Option[Attraction]]]    = List(attractionProgram, attractionProgram)
-    val program: IO[List[Option[Attraction]]]     = programs.sequence
+
+    // we can also operate on multiple programs
+    val programs: List[IO[Option[Attraction]]] = List(attractionProgram, attractionProgram)
+
+    // we can transform them into a single program
+    val program: IO[List[Option[Attraction]]] = programs.sequence
+
+    // and run them all the same way
     println(program.unsafeRunSync())
   }
 

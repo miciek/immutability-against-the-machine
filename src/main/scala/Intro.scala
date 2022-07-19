@@ -26,6 +26,14 @@ object Intro {
   }
 
   {
+    val abcd  = List("a", "b", "c", "d")
+    val empty = List()
+
+    assert(abcd.headOption == Some("a"))
+    assert(empty.headOption == None)
+  }
+
+  {
     val abcd = "abcd"
     val bc   = abcd.substring(1, 3)
     assert(bc == "bc")

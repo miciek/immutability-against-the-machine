@@ -32,9 +32,9 @@ public class IntroImperative {
         List<Integer> result = new ArrayList<>();
 
         for (Integer x: xs) {
-            result.add(x * x);
+            result.add(x * 2);
         }
-        assert(result.toString().equals("[1, 4, 9, 16, 25]"));
+        System.out.println(result.toString()); // [2, 4, 6, 8, 10]
 
         // exceptions
         String tvShow = "The Wire (2002-2008)";
@@ -44,7 +44,7 @@ public class IntroImperative {
         int end = extractYearEnd(tvShow); // 2008
         assert(start == 2008);
 
-        extractYearStart("Chernobyl (2019)"); // ???
+        // extractYearStart("Chernobyl (2019)"); // ???
 
         Integer year = null;
         try {

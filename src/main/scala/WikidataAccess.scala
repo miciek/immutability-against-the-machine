@@ -3,6 +3,7 @@ import org.apache.jena.query.QuerySolution
 import model.*
 import org.apache.jena.rdfconnection.{RDFConnection, RDFConnectionRemote}
 
+// TODO: switch to using QueryingWikidata.parseAttraction before showing it
 object WikidataAccess {
   val prefixes: String = """
                            |PREFIX wd: <http://www.wikidata.org/entity/>

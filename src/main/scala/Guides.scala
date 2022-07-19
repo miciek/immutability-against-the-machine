@@ -91,10 +91,12 @@ object Guides {
 
     /** STEP 6: protect against leaks
       */
+    // creating a Resource value
     val connectionResource: Resource[IO, RDFConnection] = Resource.make(
       IO.delay(createConnectionUnsafe())
     )(connection => IO.delay(connection.close()))
 
+    // using the Resource value
     val program: IO[Option[TravelGuide]] = connectionResource.use(c => {
       val wikidata = getSparqlDataAccess(execQuery(c))
       Version3.travelGuide(wikidata, "Bridge") // this will not leak, even if there are errors
@@ -102,6 +104,7 @@ object Guides {
 
     /** STEP 7: same queries will return same results, cache them!
       */
+    // using a Ref value
     def cachedExecQuery(
         connection: RDFConnection,
         cache: Ref[IO, Map[String, List[QuerySolution]]]
@@ -117,6 +120,7 @@ object Guides {
       })
     }
 
+    // creating a Ref value
     val programWithCache: IO[List[Option[TravelGuide]]] = connectionResource.use(c => {
       Ref.of[IO, Map[String, List[QuerySolution]]](Map.empty).flatMap(cache => {
         val wikidata = getSparqlDataAccess(cachedExecQuery(c, cache))
@@ -125,6 +129,7 @@ object Guides {
       })
     })
 
+    // runnning the unchanged program with caching
     println(programWithCache.unsafeRunSync()) // a hundred of programs run in sequence returns in seconds
   }
 }
