@@ -1,6 +1,8 @@
 # Immutability Against The Machine
 
-This repository contains the code example used in my talk: "Immutability Against The Machine". The code is a simplified version of the example from the ["Grokking Functional Programming"](https://github.com/miciek/grokkingfp-examples).
+This repository contains the code example used in my talk: "Immutability Against The Machine". The code is a simplified version of the example from the ["Grokking Functional Programming"](https://michalplachta.com/book).
+
+All the resources, slides, and links for this talk can be found [here](https://michalplachta.com/talks/#immutability-against-the-machine).
 
 ### Abstract
 
