@@ -8,3 +8,4 @@ out
 project/metals.sbt
 .bloop
 .bsp
+.vscode
